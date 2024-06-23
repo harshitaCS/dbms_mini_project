@@ -1,0 +1,1236 @@
+
+// Assignment: 	Mini Project
+// Team members:
+
+-------------------------------------START---------------------------------------------------------
+
+CREATE TABLE GuestHouse 
+(GHID VARCHAR(20) PRIMARY KEY, GHName VARCHAR(30), Location VARCHAR(30));
+
+CREATE TABLE Room (RoomID VARCHAR(20) PRIMARY KEY, Rent INT, Category CHAR(1));
+
+// Category: X - 1 BHK, Y - 2 BHK, Z - 3 BHK
+
+CREATE TABLE Guest (GID VARCHAR(20) PRIMARY KEY, GName VARCHAR(30), ContactNum VARCHAR(11), DOB DATE, Email VARCHAR(50));
+
+CREATE TABLE Staff (STID VARCHAR(20) PRIMARY KEY, STName VARCHAR(30), ContactNum VARCHAR(11), DOB DATE,
+Email VARCHAR(50), SType VARCHAR(20), FOREIGN KEY(SType) REFERENCES StaffSalary (SType));
+
+CREATE TABLE Food (FID VARCHAR(20) PRIMARY KEY, FName VARCHAR(50), Price FLOAT(2));
+
+CREATE TABLE Admin (AID VARCHAR(20) PRIMARY KEY, AName VARCHAR(30), ContactNum VARCHAR(11), DOB DATE, Email VARCHAR(50));
+
+CREATE TABLE StaffSalary (SType VARCHAR(20) PRIMARY KEY, Salary INT DEFAULT 0);
+
+CREATE TABLE FoodBookings (FBID VARCHAR(20) PRIMARY KEY, GID VARCHAR(20), FID VARCHAR(20), FName VARCHAR(50), Quantity INT, OrderPrice INT, DateOfOrder DATE, PaymentStatus BOOLEAN DEFAULT false,
+FOREIGN KEY(GID) REFERENCES Guest(GID), FOREIGN KEY(FID) REFERENCES Food(FID));
+
+CREATE TABLE Expenditures (Year INT, Month INT, GHID VARCHAR(20), TotalSalaryPaid INT, TotalRoomCosts INT,
+OtherBills INT, PRIMARY KEY (Year, Month, GHID), FOREIGN KEY (GHID) REFERENCES Guesthouse(GHID));
+
+CREATE TABLE Customer (CID VARCHAR(20) PRIMARY KEY, CName VARCHAR(30), ContactNum VARCHAR(11), DOB DATE, Email VARCHAR(50));
+
+CREATE TABLE Shopkeeper (SKID VARCHAR(20) PRIMARY KEY, SKName VARCHAR(30), ContactNum VARCHAR(11), DOB DATE, Email VARCHAR(50));
+
+CREATE TABLE Shop(
+    SHID VARCHAR(20) NOT NULL PRIMARY KEY,
+    shopArea VARCHAR(20),
+    Rent INT,
+    TotalSales INT DEFAULT 0
+);
+
+CREATE TABLE ShopOwnership(
+    SKID VARCHAR(20) PRIMARY KEY,
+    SHID VARCHAR(20),
+    LicensePeriod INT,
+    ExtensionPeriod INT DEFAULT 0,
+    tenureDate DATE,
+    ExtensionRequested BOOLEAN DEFAULT false,
+    FOREIGN KEY (SKID) REFERENCES Shopkeeper(SKID),
+    FOREIGN KEY (SHID) REFERENCES Shop(SHID)
+);
+
+CREATE TABLE ItemsInShop(
+    ItemID VARCHAR(20) PRIMARY KEY,
+    SHID VARCHAR(20),
+    ItemName VARCHAR(50),
+    Price INT,
+    ExpiryDate DATE,
+    FOREIGN KEY (SHID) REFERENCES shopownership(SHID)
+);
+
+CREATE TABLE ShopReceipt
+(SRID VARCHAR(20) PRIMARY KEY, CID VARCHAR(20), SHID VARCHAR(20), ItemID VARCHAR(20), PurchaseDate DATE, Quantity INT, Cost INT, 
+FOREIGN KEY (CID) REFERENCES Customer(CID), FOREIGN KEY (SHID) REFERENCES Shopownership(SHID), FOREIGN KEY (ItemID) REFERENCES itemsinshop(ItemID));
+
+CREATE TABLE FeedbackQuestions
+(Q1 VARCHAR(255), Q2 VARCHAR(255), Q3 VARCHAR(255));
+
+CREATE TABLE Feedback 
+(FDID VARCHAR(20) PRIMARY KEY, CID VARCHAR(20), SHID VARCHAR(20), 
+R1 INT, R2 INT, R3 INT, Comments VARCHAR(255),
+FOREIGN KEY (CID) REFERENCES Customer(CID), FOREIGN KEY (SHID) REFERENCES Shopownership(SHID));
+
+---------------------------------------------------------------------------------------------------
+// Table for users
+
+CREATE TABLE Users (UID INT AUTO_INCREMENT PRIMARY KEY, Email VARCHAR(50), Role VARCHAR(20), Password VARCHAR(255));
+
+---------------------------------------------------------------------------------------------------
+// Creating tables for relations
+
+CREATE TABLE StaffDutyRoster 
+(Date DATE, GHID VARCHAR(20), Shift_1 VARCHAR(20), Shift_2 VARCHAR(20), PRIMARY KEY(Date, GHID),
+FOREIGN KEY (GHID) REFERENCES Guesthouse(GHID));
+
+CREATE TABLE StaffDutyLog LIKE StaffDutyRoster;
+
+CREATE TABLE roomOf 
+(RoomID VARCHAR(20), GHID VARCHAR(20), FOREIGN KEY (RoomID) REFERENCES Room(RoomID), 
+FOREIGN KEY (GHID) REFERENCES GuestHouse(GHID));
+
+CREATE TABLE RoomBookings (RBID VARCHAR(20) PRIMARY KEY, RoomID VARCHAR(20), 
+GID VARCHAR(20), DateOfBooking DATE, ApprovalStatus CHAR(1) DEFAULT "P", StartDate DATE, EndDate DATE, Price INT,
+FOREIGN KEY (RoomID) REFERENCES Room(RoomID), FOREIGN KEY (GID) REFERENCES Guest(GID));
+// Approval status: P for pending, A for approved
+
+
+CREATE TABLE ShopRentPayment(
+    PayID VARCHAR(20) PRIMARY KEY,
+    SKID VARCHAR(20),
+    deposit INT,
+    depositDate DATE,
+    FOREIGN KEY (SKID) references Shopkeeper(SKID)
+);
+---------------------------------------------------------------------------------------------------
+Triggers/ Procedures/ Functions
+===============================
+
+// Trigger for auto generating new guest ID
+
+DELIMITER $$
+
+CREATE TRIGGER before_guest_insert
+BEFORE INSERT
+ON guest 
+FOR EACH ROW
+BEGIN
+	DECLARE nextID INT;
+	
+	SELECT CAST(SUBSTRING(MAX(GID), 2, 3) AS UNSIGNED) INTO nextID FROM Guest;
+	
+	IF nextID IS NULL
+	THEN SET NEW.GID = CONCAT("G", 100);
+	ELSE SET NEW.GID = CONCAT("G", nextID + 1);
+	END IF;
+
+END $$
+
+DELIMITER ;
+---------------------------------------------------------------------------------------------------
+
+---------------------------------------------------------------------------------------------------
+// Trigger for auto generating new staff ID
+
+DELIMITER $$
+
+CREATE TRIGGER before_staff_insert
+BEFORE INSERT
+ON staff
+FOR EACH ROW
+BEGIN
+	DECLARE nextID INT;
+	
+	SELECT CAST(SUBSTRING(MAX(STID), 3, 3) AS UNSIGNED) INTO nextID FROM Staff;
+	
+	IF nextID IS NULL
+	THEN SET NEW.STID = CONCAT("ST", 100);
+	ELSE SET NEW.STID = CONCAT("ST", nextID + 1);
+	END IF;
+
+END $$
+
+DELIMITER ;
+---------------------------------------------------------------------------------------------------
+// Trigger for auto generating new customer ID
+
+DELIMITER $$
+
+CREATE TRIGGER before_customer_insert
+BEFORE INSERT
+ON customer
+FOR EACH ROW
+BEGIN
+	DECLARE nextID INT;
+	
+	SELECT CAST(SUBSTRING(MAX(CID), 2, 3) AS UNSIGNED) INTO nextID FROM Customer;
+	
+	IF nextID IS NULL
+	THEN SET NEW.CID = CONCAT("C", 100);
+	ELSE SET NEW.CID = CONCAT("C", nextID + 1);
+	END IF;
+
+END $$
+
+DELIMITER ;
+---------------------------------------------------------------------------------------------------
+// Trigger for auto generating new shopkeeper ID
+
+DELIMITER $$
+
+CREATE TRIGGER before_shopkeeper_insert
+BEFORE INSERT
+ON shopkeeper
+FOR EACH ROW
+BEGIN
+	DECLARE nextID INT;
+	
+	SELECT CAST(SUBSTRING(MAX(SKID), 3, 3) AS UNSIGNED) INTO nextID FROM Shopkeeper;
+	
+	IF nextID IS NULL
+	THEN SET NEW.SKID = CONCAT("SK", 100);
+	ELSE SET NEW.SKID = CONCAT("SK", nextID + 1);
+	END IF;
+
+END $$
+
+DELIMITER ;
+---------------------------------------------------------------------------------------------------
+// Trigger for auto generating new admin ID
+
+DELIMITER $$
+
+CREATE TRIGGER before_admin_insert
+BEFORE INSERT
+ON admin
+FOR EACH ROW
+BEGIN
+	DECLARE nextID INT;
+	
+	SELECT CAST(SUBSTRING(MAX(AID), 2, 3) AS UNSIGNED) INTO nextID FROM Admin;
+	
+	IF nextID IS NULL
+	THEN SET NEW.AID = CONCAT("A", 100);
+	ELSE SET NEW.AID = CONCAT("A", nextID + 1);
+	END IF;
+
+END $$
+
+DELIMITER ;
+---------------------------------------------------------------------------------------------------
+// Trigger for auto generating new Food ID
+
+DELIMITER $$
+
+CREATE TRIGGER before_food_insert
+BEFORE INSERT
+ON food
+FOR EACH ROW
+BEGIN
+	DECLARE nextID INT;
+	
+	SELECT CAST(SUBSTRING(MAX(FID), 2, 3) AS UNSIGNED) INTO nextID FROM Food;
+	
+	IF nextID IS NULL
+	THEN SET NEW.FID = CONCAT("F", 100);
+	ELSE SET NEW.FID = CONCAT("F", nextID + 1);
+	END IF;
+
+END $$
+
+DELIMITER ;
+---------------------------------------------------------------------------------------------------
+// Trigger for auto generating new roombooking ID
+
+DELIMITER $$
+
+CREATE TRIGGER before_roombookings_insert
+BEFORE INSERT
+ON roombookings
+FOR EACH ROW
+BEGIN
+	DECLARE nextID INT;
+	DECLARE rentOfRoom INT;
+	DECLARE days INT;
+	
+	SELECT CAST(SUBSTRING(MAX(RBID), 3, 3) AS UNSIGNED) INTO nextID FROM RoomBookings;
+	
+	IF nextID IS NULL
+	THEN SET NEW.RBID = CONCAT("RB", 100);
+	ELSE SET NEW.RBID = CONCAT("RB", nextID + 1);
+	END IF;
+
+	SELECT rent INTO rentOfRoom FROM Room WHERE RoomID = NEW.RoomID;
+	SELECT DATEDIFF(NEW.EndDate, NEW.StartDate) INTO days;
+	
+	SET NEW.Price = rentOfRoom * days;
+
+END $$
+
+DELIMITER ;
+---------------------------------------------------------------------------------------------------
+
+// Trigger for auto generating new shop ID
+
+DELIMITER $$
+
+CREATE TRIGGER before_shop_insert
+BEFORE INSERT
+ON shop
+FOR EACH ROW
+BEGIN
+	DECLARE nextID INT;
+	
+	SELECT CAST(SUBSTRING(MAX(SHID), 3, 3) AS UNSIGNED) INTO nextID FROM Shop;
+	
+	IF nextID IS NULL
+	THEN SET NEW.SHID = CONCAT("SH", 100);
+	ELSE SET NEW.SHID = CONCAT("SH", nextID + 1);
+	END IF;
+
+END $$
+
+DELIMITER ;
+---------------------------------------------------------------------------------------------------
+// Trigger for auto generating new payment ID
+
+DELIMITER $$
+
+CREATE TRIGGER before_shoprentpayment_insert
+BEFORE INSERT
+ON shoprentpayment
+FOR EACH ROW
+BEGIN
+	DECLARE nextID INT;
+	
+	SELECT CAST(SUBSTRING(MAX(PayID), 4, 3) AS UNSIGNED) INTO nextID FROM ShopRentPayment;
+	
+	IF nextID IS NULL
+	THEN SET NEW.PayID = CONCAT("Pay", 100);
+	ELSE SET NEW.PayID = CONCAT("Pay", nextID + 1);
+	END IF;
+
+END $$
+
+DELIMITER ;
+---------------------------------------------------------------------------------------------------
+// Trigger for auto generating new feedback ID
+
+DELIMITER $$
+
+CREATE TRIGGER before_feedback_insert
+BEFORE INSERT
+ON feedback
+FOR EACH ROW
+BEGIN
+	DECLARE nextID INT;
+	
+	SELECT CAST(SUBSTRING(MAX(FDID), 3, 3) AS UNSIGNED) INTO nextID FROM Feedback;
+	
+	IF nextID IS NULL
+	THEN SET NEW.FDID = CONCAT("FD", 100);
+	ELSE SET NEW.FDID = CONCAT("FD", nextID + 1);
+	END IF;
+
+END $$
+
+DELIMITER ;
+---------------------------------------------------------------------------------------------------
+// Trigger for auto generating new item ID
+
+DELIMITER $$
+
+CREATE TRIGGER before_itemsinshop_insert
+BEFORE INSERT
+ON itemsinshop
+FOR EACH ROW
+BEGIN
+	DECLARE nextID INT;
+	
+	SELECT CAST(SUBSTRING(MAX(ItemID), 3, 3) AS UNSIGNED) INTO nextID FROM itemsinshop;
+	
+	IF nextID IS NULL
+	THEN SET NEW.ItemID = CONCAT("IT", 100);
+	ELSE SET NEW.ItemID = CONCAT("IT", nextID + 1);
+	END IF;
+
+END $$
+
+DELIMITER ;
+---------------------------------------------------------------------------------------------------
+// Trigger for auto generating new shop receipt ID
+
+DELIMITER $$
+
+CREATE TRIGGER before_shopreceipt_insert
+BEFORE INSERT
+ON shopreceipt
+FOR EACH ROW
+BEGIN
+	DECLARE nextID INT;
+	
+	SELECT CAST(SUBSTRING(MAX(SRID), 3, 3) AS UNSIGNED) INTO nextID FROM shopreceipt;
+	
+	IF nextID IS NULL
+	THEN SET NEW.SRID = CONCAT("SR", 100);
+	ELSE SET NEW.SRID = CONCAT("SR", nextID + 1);
+	END IF;
+
+END $$
+
+DELIMITER ;
+---------------------------------------------------------------------------------------------------
+
+
+// Calculating rent of a room while inserting booking request
+
+DELIMITER $$
+
+CREATE TRIGGER before_RoomBookings_insert
+BEFORE INSERT
+ON RoomBookings 
+FOR EACH ROW
+BEGIN
+	DECLARE rentOfRoom INT;
+	DECLARE days INT;
+
+	SELECT rent INTO rentOfRoom FROM Room WHERE RoomID = NEW.RoomID;
+	SELECT DATEDIFF(NEW.EndDate, NEW.StartDate) INTO days;
+	
+	SET NEW.Price = rentOfRoom * days;
+END $$
+
+DELIMITER ;
+
+---------------------------------------------------------------------------------------------------
+// Staff Duty roster procedure
+
+CALL generateStaffRoster ("GH100", curdate());
+
+DELIMITER $$
+
+CREATE PROCEDURE generateStaffRoster (IN GHID_t VARCHAR(20), IN curday DATE)
+BEGIN
+	DECLARE excludeDayForCHS INT;
+	DECLARE excludeDay1ForReg INT;
+	DECLARE excludeDay2ForReg INT;	
+	DECLARE tempDate DATE;	
+	DECLARE endDate DATE;
+	DECLARE chsID1 VARCHAR(20);
+	DECLARE chsID2 VARCHAR(20);
+	DECLARE regID1 VARCHAR(20);
+	DECLARE regID2 VARCHAR(20);
+	DECLARE clrID1 VARCHAR(20);
+	DECLARE clrID2 VARCHAR(20);
+	DECLARE helID1 VARCHAR(20);
+	DECLARE helID2 VARCHAR(20);
+	DECLARE c INT;
+	DECLARE tempShiftID VARCHAR(100);
+
+	SET c = 0;
+
+	WHILE DAYOFWEEK(curday) != 1 DO
+	  SET curday = DATE_ADD(curday, INTERVAL 1 DAY);
+	END WHILE;
+
+	SELECT FLOOR(RAND()*(7) + 1) INTO excludeDayForCHS;
+	SELECT FLOOR(RAND()*(7) + 1) INTO excludeDay1ForReg;
+	SELECT FLOOR(RAND()*(7) + 1) INTO excludeDay2ForReg;
+	
+	IF excludeDayForCHS = 8 THEN SET excludeDayForCHS = 7;
+	END IF;
+	IF excludeDay1ForReg = 8 THEN SET excludeDay1ForReg = 7;
+	END IF;
+	IF excludeDay2ForReg = 8 THEN SET excludeDay2ForReg = 7;
+	END IF;
+	
+	IF excludeDay1ForReg = excludeDay2ForReg AND excludeDay1ForReg = 7 THEN
+	  SET excludeDay2ForReg = 6;
+	ELSEIF excludeDay1ForReg = excludeDay2ForReg THEN
+	  SET excludeDay2ForReg = excludeDay1ForReg + 1;
+	END IF;
+
+	CREATE TEMPORARY TABLE chsStaff (chsSTID VARCHAR(20));
+	INSERT INTO chsStaff SELECT STID FROM Staff WHERE SType = "chscook";
+	
+	CREATE TEMPORARY TABLE regStaff (regSTID VARCHAR(20));
+	INSERT INTO regStaff SELECT STID FROM Staff WHERE SType = "regcook";
+
+	CREATE TEMPORARY TABLE clrStaff (clrSTID VARCHAR(20));
+	INSERT INTO clrStaff SELECT STID FROM Staff WHERE SType = "cleaner";
+
+	CREATE TEMPORARY TABLE helStaff (helSTID VARCHAR(20));
+	INSERT INTO helStaff SELECT STID FROM Staff WHERE SType = "cookhelper";
+	
+	SELECT chsSTID INTO chsID1 FROM chsStaff LIMIT 0,1;
+	SELECT chsSTID INTO chsID2 FROM chsStaff LIMIT 1,1;
+	SELECT regSTID INTO regID1 FROM regStaff LIMIT 0,1;
+	SELECT regSTID INTO regID2 FROM regStaff LIMIT 1,1;
+	SELECT clrSTID INTO clrID1 FROM clrStaff LIMIT 0,1;
+	SELECT clrSTID INTO clrID2 FROM clrStaff LIMIT 1,1;
+	SELECT helSTID INTO helID1 FROM helStaff LIMIT 0,1;
+	SELECT helSTID INTO helID2 FROM helStaff LIMIT 1,1;
+
+	SET tempDate = curday;
+	SET endDate = DATE_ADD(curday, INTERVAL 7 DAY);
+
+	WHILE tempDate < endDate DO
+	  IF DAYOFWEEK(tempDate) = excludeDayForCHS THEN
+	    INSERT INTO staffdutyroster VALUES (tempDate, GHID_t, chsID2, chsID2 );
+	  ELSE 
+	    INSERT INTO staffdutyroster VALUES (tempDate, GHID_t, chsID1, chsID1 );
+	  END IF;
+
+	SET tempDate = DATE_ADD(tempDate, INTERVAL 1 DAY);
+	END WHILE;
+
+	SET tempDate = curday;
+	SET endDate = DATE_ADD(curday, INTERVAL 7 DAY);
+
+	WHILE c < 5 AND tempDate < endDate DO
+	  SELECT Shift_1 INTO tempShiftID FROM staffdutyroster WHERE Date = tempDate; 
+	  IF tempShiftID = chsID2 THEN
+	    SET c = c-1;
+	  ELSE
+	    UPDATE staffdutyroster SET Shift_1 = CONCAT(Shift_1, chsID2) WHERE Date = tempDate;
+	    UPDATE staffdutyroster SET Shift_2 = CONCAT(Shift_2, chsID2) WHERE Date = tempDate;
+	  END IF;
+	SET c = c + 1;
+	SET tempDate = DATE_ADD(tempDate, INTERVAL 1 DAY);
+	END WHILE;
+
+	SET tempDate = curday;
+	SET endDate = DATE_ADD(curday, INTERVAL 7 DAY);
+
+	WHILE tempDate < endDate DO
+	  IF DAYOFWEEK(tempDate) = excludeDay1ForReg OR DAYOFWEEK(tempDate) = excludeDay2ForReg THEN
+	    UPDATE staffdutyroster SET Shift_1 = CONCAT(Shift_1, regID2) WHERE Date = tempDate;
+	    UPDATE staffdutyroster SET Shift_2 = CONCAT(Shift_2, regID2) WHERE Date = tempDate;
+	  ELSE 
+	    UPDATE staffdutyroster SET Shift_1 = CONCAT(Shift_1, regID1) WHERE Date = tempDate;
+	    UPDATE staffdutyroster SET Shift_2 = CONCAT(Shift_2, regID1) WHERE Date = tempDate;
+	  END IF;
+
+	SET tempDate = DATE_ADD(tempDate, INTERVAL 1 DAY);
+	END WHILE;
+
+	SET tempDate = curday;
+	SET endDate = DATE_ADD(curday, INTERVAL 7 DAY);
+	SET c = 0;
+
+	WHILE c < 3 AND tempDate < endDate DO
+	  SELECT Shift_1 INTO tempShiftID FROM staffdutyroster WHERE Date = tempDate; 
+	  IF SUBSTRING(tempShiftID, LENGTH(tempShiftID)-4, 5) = regID2 THEN
+	    SET c = c-1;
+	  ELSE
+	    UPDATE staffdutyroster SET Shift_1 = CONCAT(Shift_1, regID2) WHERE Date = tempDate;
+	    UPDATE staffdutyroster SET Shift_2 = CONCAT(Shift_2, regID2) WHERE Date = tempDate;
+	  END IF;
+	SET c = c + 1;
+	SET tempDate = DATE_ADD(tempDate, INTERVAL 1 DAY);
+	END WHILE;
+
+	SET tempDate = curday;
+	SET endDate = DATE_ADD(curday, INTERVAL 7 DAY);
+
+	WHILE tempDate < endDate DO
+	  IF FLOOR(RAND()*(2) + 1) = 1 THEN
+	    UPDATE staffdutyroster SET Shift_1 = CONCAT(Shift_1, clrID1) WHERE Date = tempDate;
+	  ELSE 
+	    UPDATE staffdutyroster SET Shift_2 = CONCAT(Shift_2, clrID1) WHERE Date = tempDate;
+	  END IF;
+
+	SET tempDate = DATE_ADD(tempDate, INTERVAL 1 DAY);
+	END WHILE;
+
+	SET tempDate = curday;
+	SET endDate = DATE_ADD(curday, INTERVAL 7 DAY);
+
+	WHILE tempDate < endDate DO
+	  SELECT Shift_1 INTO tempShiftID FROM staffdutyroster WHERE Date = tempDate; 
+	  IF LOCATE(clrID1, tempShiftID) = 0 THEN
+	    UPDATE staffdutyroster SET Shift_1 = CONCAT(Shift_1, clrID2) WHERE Date = tempDate;
+	  ELSE 
+	    UPDATE staffdutyroster SET Shift_2 = CONCAT(Shift_2, clrID2) WHERE Date = tempDate;
+	  END IF;
+
+	SET tempDate = DATE_ADD(tempDate, INTERVAL 1 DAY);
+	END WHILE;
+
+	SET tempDate = curday;
+	SET endDate = DATE_ADD(curday, INTERVAL 7 DAY);
+
+	WHILE tempDate < endDate DO
+	  IF FLOOR(RAND()*(2) + 1) = 1 THEN
+	    UPDATE staffdutyroster SET Shift_1 = CONCAT(Shift_1, helID1) WHERE Date = tempDate;
+	  ELSE 
+	    UPDATE staffdutyroster SET Shift_2 = CONCAT(Shift_2, helID1) WHERE Date = tempDate;
+	  END IF;
+
+	SET tempDate = DATE_ADD(tempDate, INTERVAL 1 DAY);
+	END WHILE;
+
+	SET tempDate = curday;
+	SET endDate = DATE_ADD(curday, INTERVAL 7 DAY);
+
+	WHILE tempDate < endDate DO
+	  SELECT Shift_1 INTO tempShiftID FROM staffdutyroster WHERE Date = tempDate; 
+	  IF LOCATE(helID1, tempShiftID) = 0 THEN
+	    UPDATE staffdutyroster SET Shift_1 = CONCAT(Shift_1, helID2) WHERE Date = tempDate;
+	  ELSE 
+	    UPDATE staffdutyroster SET Shift_2 = CONCAT(Shift_2, helID2) WHERE Date = tempDate;
+	  END IF;
+
+	SET tempDate = DATE_ADD(tempDate, INTERVAL 1 DAY);
+	END WHILE;
+	
+	DROP TABLE chsStaff;
+	DROP TABLE regStaff;
+	DROP TABLE clrStaff;
+	DROP TABLE helStaff;
+	
+END $$
+
+DELIMITER ;
+---------------------------------------------------------------------------------------------------
+// Procedure for extending license
+
+DELIMITER $$
+
+CREATE PROCEDURE extendLicense (IN SKID_t VARCHAR(20), IN extPeriod INT)
+BEGIN
+	UPDATE shopownership SET ExtensionPeriod = extPeriod, ExtensionRequested = false WHERE SKID = SKID_t;
+END $$
+
+DELIMITER ;
+---------------------------------------------------------------------------------------------------
+// Procedure for adding receipt and calculating cost
+
+DELIMITER $$
+
+CREATE PROCEDURE addReceipt (IN itemID_t VARCHAR(20), IN shopID_t VARCHAR(20), IN CID_t VARCHAR(20), IN quantity_t INT, IN purchaseDate_t DATE)
+BEGIN
+	DECLARE costOfItem INT;
+
+	SELECT Price INTO costOfItem FROM itemsinshop WHERE ItemID = itemID_t AND SHID = shopID_t;
+	
+	SET costOfItem = costOfItem * quantity_t;
+
+	INSERT INTO shopreceipt (CID, SHID, ItemID, PurchaseDate, Quantity, Cost ) VALUES (CID_t, shopID_t, itemID_t, purchaseDate_t, quantity_t, costOfItem);
+
+END $$
+
+DELIMITER ;
+---------------------------------------------------------------------------------------------------
+// function to check if extension request has been placed
+
+DELIMITER $$
+
+CREATE FUNCTION hasPlacedExtensionRequest (email_t VARCHAR(50))
+RETURNS BOOLEAN
+DETERMINISTIC
+BEGIN
+	DECLARE extReq BOOLEAN;
+
+	DECLARE SKID_t VARCHAR(20);
+
+	SELECT SKID INTO SKID_t FROM shopkeeper WHERE Email = email_t;
+
+	SELECT ExtensionRequested INTO extReq FROM shopownership WHERE SKID = SKID_t;
+
+	RETURN extReq;
+END$$
+
+DELIMITER ;
+---------------------------------------------------------------------------------------------------
+// function to get rating of a shop
+
+DELIMITER $$
+
+CREATE FUNCTION getRating (SHID_t VARCHAR(20))
+RETURNS INT
+DETERMINISTIC
+BEGIN
+	DECLARE rating INT;
+	DECLARE i INT;
+	DECLARE n INT;
+	DECLARE tempSHID VARCHAR(20);
+	DECLARE tempFDID VARCHAR(20);
+	DECLARE matchCount INT;
+	DECLARE sumOfRatings INT;
+	DECLARE tempSum INT;
+	
+
+	SET i = 0;
+	SET n = 0;
+	SET matchCount = 0;
+	SET sumOfRatings = 0;
+	SET tempSum = 0;
+	
+	SET rating = -1;
+
+	SELECT COUNT(*) INTO n FROM feedback;
+
+	WHILE i<n DO
+	   SELECT SHID INTO tempSHID FROM feedback ORDER BY FDID LIMIT i,1;
+	   SELECT FDID INTO tempFDID FROM feedback ORDER BY FDID LIMIT i,1;
+	   
+           IF tempSHID = SHID_t THEN
+	      	SET matchCount = matchCount + 1;
+    		SELECT R1+R2+R3 INTO tempSum FROM Feedback WHERE FDID = tempFDID;
+		SET sumOfRatings = sumOfRatings + tempSum;
+	   END IF;
+	   SET i = i+1;
+	END WHILE;
+	
+	IF matchCount != 0 THEN
+	SET rating = sumOfRatings / (matchCount * 3);
+	END IF;
+
+	RETURN rating;
+END$$
+
+DELIMITER ;
+---------------------------------------------------------------------------------------------------
+// function to get total sales
+
+DELIMITER $$
+
+CREATE FUNCTION getTotalSales (SHID_t VARCHAR(20))
+RETURNS INT
+DETERMINISTIC
+BEGIN
+	DECLARE i INT;
+	DECLARE n INT;
+
+	DECLARE tempSHID VARCHAR(20);
+	DECLARE tempCost INT;
+	DECLARE totalSales INT;
+
+	SET i = 0;
+	SET n = 0;
+	SET tempCost = 0;
+	SET totalSales = 0;
+
+	SELECT COUNT(*) INTO n FROM shopreceipt;
+
+	WHILE i<n DO
+	   SELECT SHID INTO tempSHID FROM shopreceipt ORDER BY SRID LIMIT i,1;
+	   SELECT Cost INTO tempCost FROM shopreceipt ORDER BY SRID LIMIT i,1;
+	   
+           IF tempSHID = SHID_t THEN
+		SET totalSales = totalSales + tempCost;
+	   END IF;
+	   SET i = i+1;
+	END WHILE;
+
+	RETURN totalSales;
+END$$
+
+DELIMITER ;
+---------------------------------------------------------------------------------------------------
+// Procedure for ordering food
+
+DELIMITER $$
+
+CREATE PROCEDURE orderFood(IN FID_t VARCHAR(20), IN quantity_t INT, IN email_t VARCHAR(50))
+BEGIN
+	DECLARE orderPrice_t INT;
+	DECLARE GID_t VARCHAR(20);
+	DECLARE FName_t VARCHAR(50);
+	
+	SELECT Price INTO orderPrice_t FROM Food WHERE FID = FID_t;
+	SELECT FName INTO FName_t FROM Food WHERE FID = FID_t;
+	
+	SET orderPrice_t = orderPrice_t * quantity_t;
+
+	SELECT GID INTO GID_t FROM Guest WHERE Email = email_t;
+
+	INSERT INTO FoodBookings (GID, FID, FName, Quantity, OrderPrice, DateOfOrder) VALUES 
+	(GID_t, FID_t, FName_t, quantity_t, orderPrice_t, curdate());
+END $$
+
+DELIMITER ;
+---------------------------------------------------------------------------------------------------
+// Procedure for dumping gardener duties
+
+DELIMITER $$
+
+CREATE PROCEDURE saveGardenerDutyHistory()
+BEGIN
+	INSERT INTO duty_history SELECT * FROM Duty;
+	DELETE FROM Duty;
+END $$
+
+DELIMITER ;
+---------------------------------------------------------------------------------------------------
+// Procedure for assigning tool to mechanic
+
+DELIMITER $$
+
+CREATE PROCEDURE assignToolToMechanic(IN TID_t VARCHAR(20), IN MID_t VARCHAR(20), IN Date_t DATE)
+BEGIN
+	INSERT INTO ToolRepairing VALUES (TID_t, MID_t, Date_t);
+	UPDATE tool SET Status = "R" WHERE TID = TID_t;
+END $$
+
+DELIMITER ;
+---------------------------------------------------------------------------------------------------
+// Procedure for gardener to use tool
+
+DELIMITER $$
+
+CREATE PROCEDURE setGardenerTool(IN TID_t VARCHAR(20), IN email_t VARCHAR(20))
+BEGIN
+	DECLARE GDID_t VARCHAR(20);
+
+	SELECT GDID INTO GDID_t FROM Gardener WHERE email = email_t;
+	INSERT INTO ToolUsing VALUES (TID_t, GDID_t, curdate());
+	UPDATE tool SET Status = "W" WHERE TID = TID_t;
+END $$
+
+DELIMITER ;
+---------------------------------------------------------------------------------------------------
+// Procedure for gardener to return tool
+
+DELIMITER $$
+
+CREATE PROCEDURE returnTool(IN TID_t VARCHAR(20))
+BEGIN
+	DELETE FROM ToolUsing WHERE TID = TID_t;
+	UPDATE tool SET Status = "A" WHERE TID = TID_t;
+END $$
+
+DELIMITER ;
+---------------------------------------------------------------------------------------------------
+// Procedure for mechanic to mark tool as repaired
+
+DELIMITER $$
+
+CREATE PROCEDURE markToolAsRepaired(IN TID_t VARCHAR(20), IN MID_t VARCHAR(20), IN Date_t DATE, IN amount_t INT)
+BEGIN
+	INSERT INTO ToolRepairHistory (TID, MID, DateFinished, Amount) VALUES (TID_t, MID_t, Date_t, amount_t);
+	UPDATE tool SET Status = "A" WHERE TID = TID_t;
+	DELETE FROM ToolRepairing WHERE TID = TID_t AND MID = MID_t;
+END $$
+
+DELIMITER ;
+---------------------------------------------------------------------------------------------------
+// Procedure for getting monthly salary of workers
+
+delimiter $$
+create procedure get_salary(in y int,in m int,in price int)
+begin
+ select GDID,sum(dutyTime)*price as salary from Duty_history where year(DateofDuty)=y and month(DateofDuty)=m and Status='P' group by GDID ;
+end;
+$$
+delimiter ;
+---------------------------------------------------------------------------------------------------
+// Procedure for logging staff schedule in staffdutylog
+
+DELIMITER $$
+
+CREATE PROCEDURE logStaffSchedule()
+BEGIN
+	INSERT INTO StaffDutyLog SELECT * FROM staffdutyroster;
+
+	DELETE FROM staffdutyroster;
+
+END $$
+
+DELIMITER ;
+---------------------------------------------------------------------------------------------------
+// procedure to generate expenditure of guesthouse
+
+DELIMITER $$
+
+CREATE PROCEDURE generateExpenditure 
+(IN Year_t INT, IN Month_t INT, IN GHID_t VARCHAR(20), IN OtherBills_t INT)
+BEGIN
+	DECLARE i INT;
+	DECLARE j INT;
+	DECLARE n1 INT;
+	DECLARE n2 INT;
+	DECLARE n3 INT;
+	DECLARE totalSalary INT;
+	DECLARE totalRoomCosts_t INT;
+	DECLARE tempSTID VARCHAR(20);
+	DECLARE tempSalary INT;
+	DECLARE tempShift VARCHAR(100);
+	DECLARE tempPrice INT;
+
+	SET i = 0;
+	SET j = 0;
+	SET n1 = 0;
+	SET n2 = 0;
+	SET n3 = 0;
+	SET totalSalary = 0;
+	SET totalRoomCosts_t = 0;
+
+	CREATE TEMPORARY TABLE dutylog LIKE staffdutylog;
+	INSERT INTO dutylog SELECT * FROM staffdutylog 
+	WHERE MONTH(Date) = Month_t AND YEAR(Date) = Year_t; 
+	
+	CREATE TEMPORARY TABLE roomsBookedInThisMonth LIKE roombookings;
+	INSERT INTO roomsBookedInThisMonth (SELECT * FROM roombookings 
+	WHERE MONTH(DateOfBooking) = Month_t AND YEAR(DateOfBooking) = Year_t 
+	AND RoomID IN (SELECT RoomID FROM roomof WHERE GHID = GHID_t)); 
+
+	SELECT COUNT(*) INTO n1 FROM staff;
+	SELECT COUNT(*) INTO n2 FROM dutylog;
+	SELECT COUNT(*) INTO n3 FROM roomsBookedInThisMonth;
+
+	WHILE i<n1 DO
+	   SELECT STID INTO tempSTID FROM staff LIMIT i,1;
+	   SELECT Salary INTO tempSalary FROM StaffSalary 
+	   WHERE SType = (SELECT SType FROM staff WHERE STID = tempSTID);
+	   
+	   WHILE j<n2 DO
+	      SELECT Shift_1 INTO tempShift FROM dutylog LIMIT j,1;
+
+              IF LOCATE(tempSTID, tempShift) != 0 THEN
+	         SET totalSalary = totalSalary + tempSalary*4;
+	      END IF;
+
+	      SELECT Shift_2 INTO tempShift FROM dutylog LIMIT j,1;
+	      
+	      IF LOCATE(tempSTID, tempShift) != 0 THEN
+	         SET totalSalary = totalSalary + tempSalary*4;
+	      END IF;
+
+	      SET j = j+1;
+   	   END WHILE; 
+	SET j = 0;
+	SET i = i+1;
+	END WHILE;
+
+	SET i = 0;
+
+	WHILE i<n3 DO
+	   SELECT Price INTO tempPrice FROM roomsBookedInThisMonth LIMIT i,1;
+	   SET totalRoomCosts_t = totalRoomCosts_t + tempPrice;
+	   SET i = i+1;
+	END WHILE;
+
+	SET totalRoomCosts_t = totalRoomCosts_t/10;
+	
+	INSERT INTO expenditures VALUES 
+	(Year_t, Month_t, GHID_t, totalSalary, totalRoomCosts_t, OtherBills_t);
+
+	DROP TABLE dutylog;
+	DROP TABLE roomsBookedInThisMonth;
+END$$
+
+DELIMITER ;
+---------------------------------------------------------------------------------------------------
+// procedure to set weekly schedule
+
+delimiter $$
+create procedure set_week()
+begin
+    declare date1 date;
+    declare date2 date;
+    declare flag int default 0;
+    declare globali int;
+    declare n int ;
+    declare temp_id varchar(20);
+    declare c int default 0;
+    declare t int default 0;
+    set globali=0;
+    set date1 = date_add(curdate(),interval 1 day);
+    call Weeklyrequest;
+    select count(*) from Duty into flag;
+    if flag=0 then
+   	 set date2= date_add(date1,interval 7 day);
+   	 while (date1<date2) do
+   		 delete from Work8;
+   		 insert into Work8 select GDID,8 from Gardener;
+   		 select count(*) from Work8 into n;
+   		 set c=0;
+   		 while c<n do
+   			 if (c%7=t) then
+   				 select GDID from Work8 limit c,1 into temp_id;
+   				 if (c<globali) then
+   					 set globali=globali-1;
+   				 end if;
+   				 delete from Work8 where GDID=temp_id;
+   			 end if;
+   			 set c=c+1;
+   		 end while;
+   		 call set_duty(date1,globali);
+   		 set date1=date_add(date1,interval 1 day);
+   		 set t=t+1;
+   	 end while;
+    end if;
+end;
+$$
+delimiter ;
+---------------------------------------------------------------------------------------------------
+// procedure to 
+
+delimiter $$
+create procedure set_duty(in day date,in globali int)
+begin
+    declare j int;
+    declare n_worker int;
+    declare n_request int;
+    declare flag int default 0;
+    declare startj int;
+    declare tot_time1 int;
+    declare req_time1 int;
+    declare area_id1 varchar(20);
+    declare worker_id1 varchar(20);
+    declare flag1 int;
+    
+    set flag=0;
+    set flag1=0;
+    set j=globali;
+    set startj=j;
+    select count(*) from Request into n_request;
+    if (n_request=0) then
+   	 set flag=1;
+    end if;
+    select count(*) from Work8 into n_worker;
+    while flag=0 do
+   	 
+   	 select ARID from Request limit 0,1 into area_id1;
+   	 select Ready_Time from Work8 limit j,1 into tot_time1;
+   	 select rem_time from Request limit 0,1 into req_time1;
+   	 select GDID from Work8 limit j,1 into worker_id1;
+   	 if (tot_time1 >= req_time1) then
+   		 set tot_time1= tot_time1-req_time1;
+   		 update Work8 set Ready_Time=tot_time1 where GDID=worker_id1;
+   		 insert into Duty
+   		 values (day,worker_id1,area_id1,req_time1,'A');
+   		 insert into Completed_request values (day,area_id1);
+   		 delete from Request where ARID=area_id1;
+   		 set n_request=n_request-1;
+   		 if n_request=0 then
+   			 set flag=1;
+   		 end if;
+   		 if tot_time1=0 then
+   			 set j=j+1;
+   		 end if;
+   	 else   
+   		 if (tot_time1!=0) then
+   			 set req_time1=req_time1-tot_time1;
+   			 update Request set rem_time=req_time1 where ARID=area_id1;
+   			 update Work8 set Ready_Time=0 where GDID=worker_id1;
+   			 insert into Duty
+   			 values (day,worker_id1,area_id1,tot_time1,'A');
+   		 end if;
+   		 set j=j+1;
+   	 end if;
+   	 if (j=n_worker) then
+   		 set j=0;
+   		 set flag1=1;
+   	 end if;
+   	 if (j=startj) then
+   		 if (flag1=1) then    
+   			 set flag=1;
+   		 end if;
+   	 end if;
+    end while;
+    if ( j= n_worker ) then
+   	 set j=0;
+    end if;
+    set globali=j;
+end;
+$$
+delimiter ;
+---------------------------------------------------------------------------------------------------
+delimiter $$
+create procedure Weeklyrequest()
+begin
+    declare i int;
+    declare n int;
+    declare temp_id varchar(20);
+    declare flag int;
+    set i=0;
+    select count(*) from Area into n;
+    while i<n do
+   	 select ARID from Area limit i,1 into temp_id;
+   	 select exists(select * from Request where ARID= temp_id) into flag;
+   	 if (flag=0) then
+   		 call Createrequest(temp_id);
+   	 end if ;
+   	 set i=i+1;
+    end while;
+end;
+$$
+delimiter ;
+---------------------------------------------------------------------------------------------------
+delimiter $$
+create procedure Createrequest(in area_id varchar(20))
+begin
+    declare temp_time int;
+    select time from Area where ARID=area_id into temp_time;
+    insert into Request values (area_id,curdate(),temp_time);
+end;
+$$
+delimiter ;
+---------------------------------------------------------------------------------------------------
+delimiter $$
+create procedure get_salary(in y int,in m int,in price int)
+begin
+ select GDID,sum(dutyTime)*price from Duty_history where year(DateofDuty)=y and month(DateofDuty)=m and Status='P' group by GDID ;
+end;
+$$
+delimiter ;
+
+---------------------------------------------------------------------------------------------------
+DELIMITER $$
+
+CREATE PROCEDURE saveGardenerDutyHistory()
+BEGIN
+	INSERT INTO duty_history SELECT * FROM Duty;
+	DELETE FROM Duty;
+END
+
+DELIMITER;
+---------------------------------------------------------------------------------------------------
+Garden queries
+==============
+// For getting the areas which have not been requested
+SELECT ARID FROM Area WHERE ARID NOT IN (SELECT ARID FROM request);
+
+// Adding new gardening request 
+INSERT INTO request (ARID, DateOfRequest, rem_time) VALUES (?,?,?);
+
+// Adding new area
+INSERT INTO area (time, type) VALUES (?,?);
+
+// Viewing datewise duty history
+SELECT * FROM duty_history WHERE DateOfDuty >= ? AND DateOfDuty <= ?;
+
+// Getting all available mechanics
+SELECT * FROM mechanic WHERE Status = 'A';
+
+// Finding pending payments to mechanics
+SELECT * FROM toolrepairhistory WHERE PaymentStatus = false;
+
+// Marking mechanic payment as paid
+UPDATE toolrepairhistory SET PaymentStatus = true WHERE TRID = ?;
+
+// Adding new tool
+INSERT INTO Tool (TName) VALUES (?);
+
+// Marking attendeance of gardener
+UPDATE duty SET Status = 'P' WHERE GDID = ? AND DateOfDuty = ?;
+
+// Getting current week's gardener duty
+SELECT * FROM duty WHERE GDID = ?;
+
+// Showing all available tools to gardeners
+SELECT * from tool WHERE Status = 'A';
+
+// Find tools being used by given gardener
+SELECT TID from toolusing WHERE GDID = (SELECT GDID FROM Gardener WHERE Email = ?);
+
+// Getting tools assigned to mechanic
+SELECT TID, TName FROM tool WHERE TID IN (SELECT TID FROM toolrepairing WHERE MID = (SELECT MID FROM Mechanic WHERE Email = ?));
+---------------------------------------------------------------------------------------------------
+Market queries
+==================
+
+// Adding new shop
+INSERT INTO shop (shopArea, Rent) VALUES (?,?);
+
+// Adding new shop payment
+INSERT INTO shoprentpayment (SKID, deposit, depositDate) VALUES (?,?,?);
+
+// Getting unassigned shopkeepers
+SELECT SKID FROM shopkeeper WHERE SKID NOT IN (SELECT SKID FROM shopownership);
+
+// Getting unassigned shops
+SELECT SHID FROM shop WHERE SHID NOT IN (SELECT SHID FROM shopownership);
+
+// Getting shopkeepers who made extension requests
+SELECT SKID FROM shopownership WHERE ExtensionRequested = true;
+
+// Extending license of shop
+UPDATE shopownership SET ExtensionPeriod = ?, ExtensionRequested = false WHERE SKID = ?;
+
+// Assigning shop to shopkeeper
+INSERT INTO shopownership (SKID, SHID, LicensePeriod, tenureDate) VALUES (?,?,?,?);
+
+// Updating feedback question 1
+UPDATE FeedbackQuestions SET Q1 = ?;
+
+// Customer submitting feedback
+INSERT INTO Feedback (CID, SHID, R1, R2, R3, Comments) VALUES (?,?,?,?,?,?);
+
+// Getting past purchases of customer
+SELECT * FROM shopreceipt WHERE CID = 'CI1' AND SHID = 'SHI1';
+
+// Getting license expiration date of shopkeeper
+SELECT ADDDATE(tenureDate, INTERVAL (LicensePeriod + ExtensionPeriod) DAY) AS LicenseExpiryDate 
+FROM shopownership WHERE SKID = (SELECT SKID FROM shopkeeper WHERE Email = 'aab@gmail.com');
+
+// Shopkeeper requesting extension
+UPDATE shopownership SET ExtensionRequested = true 
+WHERE SKID = (SELECT SKID FROM shopkeeper WHERE Email = ?);
+
+// Getting paymnet history
+SELECT * FROM shoprentpayment WHERE SKID = (SELECT SKID FROM shopkeeper WHERE Email = 'aah@gmail.com');
+
+// Getting items in a shop
+SELECT * FROM itemsinshop WHERE SHID = 'SHI8';
+
+// Adding items to a shop
+INSERT INTO ItemsInShop (SHID, itemName, Price, expiryDate) VALUES (?,?,?,?);
+
+// Deleting item from shop
+DELETE FROM itemsinshop WHERE ItemID = ? AND SHID = ?;
+---------------------------------------------------------------------------------------------------
+Guesthouse queries
+==================
+
+// Getting all unpaid food orders
+SELECT * FROM FoodBookings WHERE PaymentStatus = false;
+
+// Getting food orders in a month
+SELECT * FROM FoodBookings WHERE MONTH(DateOfOrder) = 10 AND Year(DateOfOrder) = 2022
+AND PaymentStatus = true;
+
+// Setting food order as paid
+UPDATE FoodBookings SET PaymentStatus = true WHERE FBID = ?;
+
+// Viewing a month's expenditure of guesthouse
+SELECT * FROM expenditures WHERE Month = 8 AND Year = 2022 AND GHID = 6;
+
+// Getting pending room bookings
+SELECT RBID, RoomID, GID, DateOfBooking, StartDate, EndDate, Price 
+FROM roombookings WHERE ApprovalStatus = 'P';
+
+// Approving multiple room bookings
+UPDATE roombookings SET ApprovalStatus = 'A' WHERE roomID IN (?);
+
+// Getting monthly room bookings in a category
+SELECT * FROM roombookings WHERE MONTH(DateOfBooking) = 11
+AND YEAR(DateOfBooking) = 2020 AND ApprovalStatus = 'A' 
+AND RoomID IN (SELECT RoomID FROM Room WHERE Category = X);
+
+// Getting logged data from staff duty log
+SELECT * FROM staffdutylog WHERE Date >= '2020-01-01' AND Date <= '2020-01-09'
+;
+
+// Updating staff salary
+UPDATE staffsalary SET Salary = ? WHERE SType = ?;
+
+// Updating staff schedule
+UPDATE staffdutyroster SET Shift_1 = ? WHERE Date = ?;
+UPDATE staffdutyroster SET Shift_2 = ? WHERE Date = ?;
+
+// Getting a staff's schedule
+SELECT * FROM staffdutylog WHERE Date >= 2020-01-01 AND Date <= 2020-01-09 
+AND (LOCATE(?, Shift_1) != 0 OR LOCATE(?, Shift_2) != 0);
+
+// Checking room availability
+SELECT RoomID, Rent, Category FROM room WHERE RoomID NOT IN 
+(SELECT RoomID FROM RoomBookings);
+
+// Booking room
+INSERT INTO roombookings (RoomID, GID, DateOfBooking, StartDate, EndDate) 
+VALUES (?, ?, ?, ?, ?);
+-----------------------------------------------END-------------------------------------------------
